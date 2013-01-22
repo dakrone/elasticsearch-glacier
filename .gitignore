@@ -1,0 +1,6 @@
+target
+stale
+elasticsearch-glacier.iml
+.idea
+logs
+data
