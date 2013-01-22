@@ -1,5 +1,7 @@
 package com.sonian.elasticsearch.plugin.glacier;
 
+import clojure.lang.RT;
+import clojure.lang.Symbol;
 import org.elasticsearch.ElasticSearchException;
 import org.elasticsearch.cluster.ClusterService;
 import org.elasticsearch.cluster.ClusterState;
@@ -34,6 +36,8 @@ public class GlacierService extends AbstractComponent {
                 try {
                     logger.info("--- Freezing [" + i + "]");
                     // TODO: actually freeze
+                    RT.var("clojure.core", "require").invoke(Symbol.intern("glacier.core"));
+                    RT.var("glacier.core", "freeze").invoke(i);
                     return clusterState;
                 } catch (Exception e) {
                     logger.warn("failed to swap shards", e);
@@ -74,6 +78,8 @@ public class GlacierService extends AbstractComponent {
                 try {
                     logger.info("+++ Thawing [" + i + "]");
                     // TODO: actually thaw
+                    RT.var("clojure.core", "require").invoke(Symbol.intern("glacier.core"));
+                    RT.var("glacier.core", "thaw").invoke(i);
                     return clusterState;
                 } catch (Exception e) {
                     logger.warn("failed to swap shards", e);
