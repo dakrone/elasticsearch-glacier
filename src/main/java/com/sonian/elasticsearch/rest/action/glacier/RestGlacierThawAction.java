@@ -14,6 +14,8 @@ import org.elasticsearch.rest.*;
 import org.elasticsearch.rest.action.support.RestXContentBuilder;
 
 import java.io.IOException;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import static org.elasticsearch.common.unit.TimeValue.timeValueSeconds;
 import static org.elasticsearch.rest.RestStatus.OK;
@@ -25,7 +27,7 @@ public class RestGlacierThawAction extends BaseRestHandler {
 
     @Inject
     public RestGlacierThawAction(Settings settings, Client client, RestController controller,
-                                   TransportGlacierThawAction thawAction) {
+                                 TransportGlacierThawAction thawAction) {
         super(settings, client);
         controller.registerHandler(RestRequest.Method.GET, "/{index}/_thaw", this);
         this.thawAction = thawAction;
@@ -34,11 +36,14 @@ public class RestGlacierThawAction extends BaseRestHandler {
     @Override
     public void handleRequest(final RestRequest request, final RestChannel channel) {
         GlacierThawRequest eqRequest = new GlacierThawRequest(request.param("index"));
+        final CountDownLatch latch = new CountDownLatch(1);
+        boolean finished = false;
 
         thawAction.execute(eqRequest, new ActionListener<GlacierThawResponse>() {
             @Override
             public void onResponse(GlacierThawResponse thawResp) {
                 // do nothing
+                latch.countDown();
             }
 
             @Override
@@ -51,35 +56,44 @@ public class RestGlacierThawAction extends BaseRestHandler {
             }
         });
 
-        OpenIndexRequest openIndexRequest = new OpenIndexRequest(request.param("index"));
-        openIndexRequest.listenerThreaded(false);
-        openIndexRequest.timeout(request.paramAsTime("timeout", timeValueSeconds(10)));
-        client.admin().indices().open(openIndexRequest, new ActionListener<OpenIndexResponse>() {
-            @Override
-            public void onResponse(OpenIndexResponse response) {
-                // do nothing, on purpose
-                try {
-                    XContentBuilder builder = restContentBuilder(request);
+        try {
+            finished = latch.await(30, TimeUnit.MINUTES);
+        } catch (InterruptedException e) {
+            logger.error("Index freeze failed during thaw phase [" + request.param("index") + "]");
+        }
 
-                    builder.startObject();
-                    builder.field("success", true);
-                    builder.endObject();
+        if (finished) {
+            OpenIndexRequest openIndexRequest = new OpenIndexRequest(request.param("index"));
+            openIndexRequest.listenerThreaded(false);
+            openIndexRequest.timeout(request.paramAsTime("timeout", timeValueSeconds(10)));
+            client.admin().indices().open(openIndexRequest, new ActionListener<OpenIndexResponse>() {
+                @Override
+                public void onResponse(OpenIndexResponse response) {
+                    // do nothing, on purpose
+                    try {
+                        XContentBuilder builder = restContentBuilder(request);
 
-                    channel.sendResponse(new XContentRestResponse(request, RestStatus.OK, builder));
+                        builder.startObject();
+                        builder.field("success", true);
+                        builder.endObject();
 
-                } catch (IOException e) { }
+                        channel.sendResponse(new XContentRestResponse(request, RestStatus.OK, builder));
 
-            }
+                    } catch (IOException e) {
+                    }
 
-            @Override
-            public void onFailure(Throwable e) {
-                try {
-                    channel.sendResponse(new XContentThrowableRestResponse(request, e));
-                } catch (IOException e1) {
-                    logger.error("Failed to send failure response", e1);
                 }
-            }
-        });
+
+                @Override
+                public void onFailure(Throwable e) {
+                    try {
+                        channel.sendResponse(new XContentThrowableRestResponse(request, e));
+                    } catch (IOException e1) {
+                        logger.error("Failed to send failure response", e1);
+                    }
+                }
+            });
+        }
 
     }
 }

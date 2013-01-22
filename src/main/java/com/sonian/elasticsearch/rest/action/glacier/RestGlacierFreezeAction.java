@@ -14,6 +14,8 @@ import org.elasticsearch.rest.*;
 import org.elasticsearch.rest.action.support.RestXContentBuilder;
 
 import java.io.IOException;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import static org.elasticsearch.common.unit.TimeValue.timeValueSeconds;
 import static org.elasticsearch.rest.RestStatus.OK;
@@ -36,10 +38,14 @@ public class RestGlacierFreezeAction extends BaseRestHandler {
         CloseIndexRequest closeIndexRequest = new CloseIndexRequest(request.param("index"));
         closeIndexRequest.listenerThreaded(false);
         closeIndexRequest.timeout(request.paramAsTime("timeout", timeValueSeconds(10)));
+        final CountDownLatch latch = new CountDownLatch(1);
+        boolean finished = false;
+
         client.admin().indices().close(closeIndexRequest, new ActionListener<CloseIndexResponse>() {
             @Override
             public void onResponse(CloseIndexResponse response) {
                 // do nothing, on purpose
+                latch.countDown();
             }
 
             @Override
@@ -52,32 +58,41 @@ public class RestGlacierFreezeAction extends BaseRestHandler {
             }
         });
 
+        try {
+            finished = latch.await(30, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            logger.error("Index freeze failed during close phase [" + request.param("index") + "]");
+        }
 
-        GlacierFreezeRequest eqRequest = new GlacierFreezeRequest(request.param("index"));
+        if (finished) {
 
-        freezeAction.execute(eqRequest, new ActionListener<GlacierFreezeResponse>() {
-            @Override
-            public void onResponse(GlacierFreezeResponse freezeResp) {
-                try {
-                    XContentBuilder builder = restContentBuilder(request);
+            GlacierFreezeRequest eqRequest = new GlacierFreezeRequest(request.param("index"));
 
-                    builder.startObject();
-                    builder.field("success", freezeResp.acknowledged());
-                    builder.endObject();
+            freezeAction.execute(eqRequest, new ActionListener<GlacierFreezeResponse>() {
+                @Override
+                public void onResponse(GlacierFreezeResponse freezeResp) {
+                    try {
+                        XContentBuilder builder = restContentBuilder(request);
 
-                    channel.sendResponse(new XContentRestResponse(request, RestStatus.OK, builder));
+                        builder.startObject();
+                        builder.field("success", freezeResp.acknowledged());
+                        builder.endObject();
 
-                } catch (IOException e) { }
-            }
+                        channel.sendResponse(new XContentRestResponse(request, RestStatus.OK, builder));
 
-            @Override
-            public void onFailure(Throwable e) {
-                try {
-                    channel.sendResponse(new XContentThrowableRestResponse(request, e));
-                } catch (IOException e1) {
-                    logger.error("Failed to send failure response", e1);
+                    } catch (IOException e) {
+                    }
                 }
-            }
-        });
+
+                @Override
+                public void onFailure(Throwable e) {
+                    try {
+                        channel.sendResponse(new XContentThrowableRestResponse(request, e));
+                    } catch (IOException e1) {
+                        logger.error("Failed to send failure response", e1);
+                    }
+                }
+            });
+        }
     }
 }
