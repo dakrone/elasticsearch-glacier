@@ -1,4 +1,4 @@
-package com.sonian.elasticsearch.glacier;
+package com.sonian.elasticsearch.plugin.glacier;
 
 import org.elasticsearch.common.inject.AbstractModule;
 import org.elasticsearch.common.settings.Settings;

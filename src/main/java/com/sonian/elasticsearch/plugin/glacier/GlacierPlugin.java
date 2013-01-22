@@ -1,9 +1,12 @@
-package com.sonian.elasticsearch.glacier;
+package com.sonian.elasticsearch.plugin.glacier;
 
+import com.sonian.elasticsearch.rest.action.glacier.RestGlacierFreezeAction;
+import com.sonian.elasticsearch.rest.action.glacier.RestGlacierThawAction;
 import org.elasticsearch.common.collect.ImmutableList;
 import org.elasticsearch.common.inject.Module;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.plugins.AbstractPlugin;
+import org.elasticsearch.rest.RestModule;
 
 import java.util.Collection;
 
@@ -36,4 +39,11 @@ public class GlacierPlugin extends AbstractPlugin {
         return ImmutableList.<Class<? extends Module>>of(GlacierModule.class);
     }
 
+    @Override
+    public void processModule(Module module) {
+        if (module instanceof RestModule) {
+            ((RestModule) module).addRestAction(RestGlacierFreezeAction.class);
+            ((RestModule) module).addRestAction(RestGlacierThawAction.class);
+        }
+    }
 }

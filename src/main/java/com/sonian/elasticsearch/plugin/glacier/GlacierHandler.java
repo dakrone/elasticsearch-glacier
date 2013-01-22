@@ -1,4 +1,4 @@
-package com.sonian.elasticsearch.glacier;
+package com.sonian.elasticsearch.plugin.glacier;
 
 import clojure.lang.Keyword;
 import clojure.lang.RT;
