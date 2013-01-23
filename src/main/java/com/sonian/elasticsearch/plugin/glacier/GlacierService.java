@@ -9,7 +9,9 @@ import org.elasticsearch.cluster.ClusterStateUpdateTask;
 import org.elasticsearch.common.component.AbstractComponent;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.env.Environment;
 
+import java.io.File;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -17,11 +19,13 @@ import java.util.concurrent.atomic.AtomicReference;
 public class GlacierService extends AbstractComponent {
 
     private final ClusterService clusterService;
+    private final Environment env;
 
     @Inject
-    public GlacierService(Settings settings, ClusterService clusterService) {
+    public GlacierService(Settings settings, ClusterService clusterService, Environment env) {
         super(settings);
         this.clusterService = clusterService;
+        this.env = env;
     }
 
     public boolean freeze(String index) {
@@ -36,11 +40,14 @@ public class GlacierService extends AbstractComponent {
                 try {
                     logger.info("--- Freezing [" + i + "]");
                     // TODO: actually freeze
-                    RT.var("clojure.core", "require").invoke(Symbol.intern("glacier.core"));
-                    RT.var("glacier.core", "freeze").invoke(i);
+                    String dataLoc = env.dataFiles()[0].getAbsolutePath();
+                    dataLoc = dataLoc + "/" + settings.get("cluster.name") + "/nodes/0/indices/" + i;
+                    logger.info("--- Location: " + dataLoc);
+                    RT.var("clojure.core", "require").invoke(Symbol.intern("maclaren.core"));
+                    RT.var("maclaren.core", "freeze").invoke(i, dataLoc);
                     return clusterState;
                 } catch (Exception e) {
-                    logger.warn("failed to swap shards", e);
+                    logger.warn("failed to freeze shard", e);
                     failureRef.set(e);
                     return clusterState;
                 } finally {
@@ -78,11 +85,14 @@ public class GlacierService extends AbstractComponent {
                 try {
                     logger.info("+++ Thawing [" + i + "]");
                     // TODO: actually thaw
-                    RT.var("clojure.core", "require").invoke(Symbol.intern("glacier.core"));
-                    RT.var("glacier.core", "thaw").invoke(i);
+                    String dataLoc = env.dataFiles()[0].getAbsolutePath();
+                    dataLoc = dataLoc + "/" + settings.get("cluster.name") + "/nodes/0/indices/" + i;
+                    logger.info("+++ Location: " + dataLoc);
+                    RT.var("clojure.core", "require").invoke(Symbol.intern("maclaren.core"));
+                    RT.var("maclaren.core", "thaw").invoke(i, dataLoc);
                     return clusterState;
                 } catch (Exception e) {
-                    logger.warn("failed to swap shards", e);
+                    logger.warn("failed to thaw shard", e);
                     failureRef.set(e);
                     return clusterState;
                 } finally {

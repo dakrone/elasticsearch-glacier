@@ -10,18 +10,6 @@
   <packaging>jar</packaging>
   <description>Yep, it's a thing</description>
   <inceptionYear>2013</inceptionYear>
-  <!-- <licenses> -->
-  <!--     <license> -->
-  <!--         <name>Mozilla Public License Version 2.0</name> -->
-  <!--         <url>https://www.mozilla.org/MPL/2.0/index.txt</url> -->
-  <!--         <distribution>repo</distribution> -->
-  <!--     </license> -->
-  <!-- </licenses> -->
-  <!-- <scm> -->
-  <!--     <connection>scm:git:git@github.com:dakrone/elasticsearch-glacier.git</connection> -->
-  <!--     <developerConnection>scm:git:git@github.com:dakrone/elasticsearch-glacier.git</developerConnection> -->
-  <!--     <url>http://github.com/dakrone/elasticsearch-glacier</url> -->
-  <!-- </scm> -->
 
   <parent>
     <groupId>org.sonatype.oss</groupId>
@@ -32,7 +20,6 @@
   <properties>
     <elasticsearch.version>0.20.2</elasticsearch.version>
     <clojure.version>1.4.0</clojure.version>
-    <glacier.version>0.1</glacier.version>
   </properties>
 
   <repositories>
@@ -40,6 +27,11 @@
       <id>sonatype</id>
       <name>elasticsearch sonatype repo</name>
       <url>https://oss.sonatype.org/content/repositories/releases</url>
+    </repository>
+    <repository>
+      <id>clojars</id>
+      <name>clojars repo</name>
+      <url>http://clojars.org/repo</url>
     </repository>
   </repositories>
 
@@ -58,9 +50,10 @@
     </dependency>
 
     <dependency>
-      <groupId>glacier</groupId>
-      <artifactId>glacier</artifactId>
-      <version>${glacier.version}</version>
+      <groupId>maclaren</groupId>
+      <artifactId>maclaren</artifactId>
+      <version>0.0.1</version>
+      <scope>runtime</scope>
     </dependency>
 
     <dependency>
